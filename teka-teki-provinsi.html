@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Teka-Teki Silang: Kota & Provinsi Indonesia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a3a6b;
+            --primary-light: #e8eef6;
+            --accent: #f0c040;
+            --active-cell: #fff3c4;
+            --active-word: #fef9e7;
+            --success: #16a34a;
+            --success-bg: #dcfce7;
+            --hint-color: #94a3b8;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #94a3b8;
+            --cell-bg: #ffffff;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 1.5rem 1rem;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: none;
+        }
+
+        .page { max-width: 1100px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem 1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, #2d5aa0 100%);
+            border-radius: 1rem;
+            color: #fff;
+        }
+        .header-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.3rem 0.8rem;
+            border-radius: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.03em;
+        }
+        .header h1 { font-size: 1.4rem; font-weight: 800; line-height: 1.3; }
+        .header h1 span { color: var(--accent); }
+        .header .subtitle { font-size: 0.85rem; opacity: 0.8; margin-top: 0.4rem; }
+
+        /* Info Cards */
+        .info-row {
+            display: grid; grid-template-columns: 1fr; gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media(min-width:700px){ .info-row{grid-template-columns:1fr 1.5fr;} }
+        .card {
+            background: var(--card); border-radius: 0.75rem;
+            padding: 1.25rem; border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; display:flex; align-items:center; gap:0.4rem; }
+        .card p { font-size: 0.88rem; line-height: 1.6; color: var(--text-muted); }
+        .card p strong { color: var(--text); }
+        .objective h3 { color: var(--primary); }
+        .objective p { color: var(--text); font-weight: 500; }
+
+        /* Game Layout */
+        .game {
+            display: grid; grid-template-columns: 1fr; gap: 1.5rem;
+        }
+        @media(min-width:860px){ .game{grid-template-columns: auto 1fr;} }
+
+        /* Active Clue Panel (Mobile Friendly) */
+        .active-clue-panel {
+            background: var(--primary);
+            color: white;
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0.5rem;
+            z-index: 10;
+            transition: all 0.2s ease;
+            min-height: 3.5rem;
+        }
+        .active-clue-panel.hidden-clue {
+            background: var(--card);
+            color: var(--text-muted);
+            border: 1px dashed var(--border);
+            box-shadow: none;
+            justify-content: center;
+        }
+        .clue-badge {
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 0.85rem;
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .clue-text { font-size: 0.9rem; line-height: 1.4; font-weight: 500; }
+        .clue-dir-icon { font-size: 0.8rem; opacity: 0.8; margin-left: auto; padding-left: 0.5rem; }
+
+        /* Board */
+        .board-area { display:flex; flex-direction:column; gap:1rem; width: 100%; }
+        .board-scroll { 
+            overflow-x:auto; padding:0.5rem; width:100%; 
+            display:flex; justify-content:center;
+            /* smooth scroll for mobile */
+            -webkit-overflow-scrolling: touch;
+        }
+        .board { position:relative; }
+
+        .cell {
+            position: absolute;
+            width: 38px; height: 38px; /* Larger touch target for mobile */
+            background: var(--cell-bg);
+            border: 1.5px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .cell.hl-word { background: var(--active-word); border-color: #d4a017; }
+        .cell.hl-active { background: var(--active-cell); border-color: #b8860b; z-index: 2; transform: scale(1.05); }
+        .cell.correct { background: var(--success-bg) !important; border-color: var(--success) !important; }
+        .cell.wrong { background: #fee2e2 !important; border-color: #ef4444 !important; }
+
+        .cell .num {
+            position: absolute; top: 1px; left: 2px;
+            font-size: 0.55rem; font-weight: 700; color: var(--text-muted);
+            line-height: 1; pointer-events: none; user-select: none;
+        }
+        .cell input {
+            width: 100%; height: 100%; border: none; background: transparent;
+            text-align: center; font-weight: 700;
+            text-transform: uppercase; outline: none; color: var(--text);
+            caret-color: var(--primary); padding: 0;
+            /* 16px prevents iOS Safari zoom on focus! */
+            font-size: 16px;
+        }
+        .cell input:disabled { color: var(--hint-color); -webkit-text-fill-color: var(--hint-color); cursor:default; }
+        .cell.correct input { color: var(--success) !important; -webkit-text-fill-color: var(--success) !important; }
+        .cell.wrong input { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+
+        /* Controls */
+        .controls { display:flex; gap:0.6rem; flex-wrap:wrap; justify-content:center; }
+        .btn {
+            padding: 0.75rem 1.25rem; border:none; border-radius:0.5rem;
+            font-weight:600; font-size:0.9rem; cursor:pointer; font-family:inherit;
+            transition: transform 0.1s, opacity 0.15s;
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .btn:active { transform:scale(0.96); }
+        .btn-primary { background:var(--primary); color:#fff; }
+        .btn-primary:hover { opacity:0.9; }
+        .btn-secondary { background:#e2e8f0; color:#475569; }
+        .btn-secondary:hover { background:#cbd5e1; }
+
+        /* Full Clues List - Hidden on small screens to save space since we have active clue panel */
+        .clues-panel {
+            background:var(--card); border:1px solid #e2e8f0; border-radius:0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            display:flex; flex-direction:column; max-height:620px; overflow:hidden;
+        }
+        .clues-scroll { overflow-y:auto; padding:1rem; flex:1; -webkit-overflow-scrolling: touch; }
+        .clues-scroll::-webkit-scrollbar{width:5px;}
+        .clues-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+        .clue-dir { margin-bottom:1rem; }
+        .clue-dir:last-child{margin-bottom:0;}
+        .clue-dir h2 {
+            font-size:0.8rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:0.06em; color:var(--primary);
+            margin-bottom:0.4rem; padding-bottom:0.3rem; border-bottom:2px solid var(--primary-light);
+        }
+        .clue-list{list-style:none;}
+        .clue-item {
+            display:flex; gap:0.4rem; padding:0.5rem; border-radius:0.35rem;
+            cursor:pointer; font-size:0.88rem; line-height:1.4;
+            border:1px solid transparent; transition: background 0.12s;
+        }
+        .clue-item:hover{background:#f8fafc;}
+        .clue-item.active{background:var(--active-word);border-color:#d4a017;font-weight:600;color:#92600a;}
+        .clue-num{font-weight:700;min-width:1.4rem;flex-shrink:0;}
+
+        /* Modal */
+        .modal-bg {
+            position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);
+            display:flex;align-items:center;justify-content:center;
+            opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;
+        }
+        .modal-bg.show{opacity:1;pointer-events:all;}
+        .modal-box {
+            background:#fff;padding:2.5rem 1.5rem;border-radius:1.25rem;text-align:center;
+            max-width:340px;width:90%;
+            box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);
+            transform:translateY(12px) scale(0.97);
+            transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        .modal-bg.show .modal-box{transform:translateY(0) scale(1);}
+        .modal-box .emoji{font-size:3.5rem;margin-bottom:0.5rem;}
+        .modal-box h2{font-size:1.6rem; margin-bottom:0.4rem; font-weight:800;}
+        .modal-box p{color:var(--text-muted);line-height:1.5;margin-bottom:1.5rem;font-size:0.92rem;}
+        
+        @media(max-width: 859px) {
+            .clues-panel { display: none; } /* Hide list on mobile, rely on active clue panel */
+            .board-scroll { justify-content: flex-start; } /* Allow scrolling from left edge if too wide */
+        }
+
+        @media(max-width:500px){
+            body{padding:0.75rem 0.5rem;}
+            .header h1{font-size:1.25rem;}
+            .cell{width:36px;height:36px;}
+            /* Important: Keep input font-size at 16px to prevent zoom on iOS */
+            .cell input{font-size:16px;}
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="header">
+        <div class="header-badge">📚 PKn — Kelas VI</div>
+        <h1>Teka-Teki Silang: <br><span>Kota &amp; Provinsi</span></h1>
+        <div class="subtitle">Yuk, tebak teka-teki berikut!</div>
+    </div>
+
+    <div class="info-row">
+        <div class="card objective">
+            <h3>🎯 Tujuan Pembelajaran</h3>
+            <p>Mengenal wilayahnya dalam konteks kabupaten/kota, dan provinsi sebagai bagian dari wilayah Negara Kesatuan Republik Indonesia.</p>
+        </div>
+        <div class="card">
+            <h3>📖 Ringkasan Materi</h3>
+            <p>Negara Kesatuan Republik Indonesia (NKRI) terbagi atas <strong>38 provinsi</strong>, dari Sabang hingga Merauke. Setiap provinsi dipimpin oleh gubernur dan terdiri dari kabupaten (dipimpin bupati) serta kota (dipimpin wali kota). Mengenal nama provinsi dan ibu kotanya membantu kita memahami keutuhan NKRI.</p>
+        </div>
+    </div>
+
+    <!-- Active Clue Panel for Mobile Focus -->
+    <div id="active-clue-panel" class="active-clue-panel hidden-clue">
+        <span class="clue-text" id="active-clue-text">Pilih kotak di papan untuk melihat pertanyaan</span>
+    </div>
+
+    <div class="game">
+        <div class="board-area">
+            <div class="board-scroll"><div class="board" id="board"></div></div>
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="resetGame()">🔄 Ulangi</button>
+                <button class="btn btn-primary" onclick="checkAnswers()">✅ Periksa Jawaban</button>
+            </div>
+        </div>
+        
+        <!-- Only visible on desktop -->
+        <div class="clues-panel">
+            <div class="clues-scroll">
+                <div class="clue-dir"><h2>➡ Mendatar</h2><ul class="clue-list" id="cl-across"></ul></div>
+                <div class="clue-dir"><h2>⬇ Menurun</h2><ul class="clue-list" id="cl-down"></ul></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-bg" id="modal">
+    <div class="modal-box">
+        <div class="emoji" id="modal-emoji">🎉</div>
+        <h2 id="modal-title">Hebat Sekali!</h2>
+        <p id="modal-msg">Kamu berhasil menyelesaikan teka-teki silang dan membuktikan pengetahuanmu tentang kota &amp; provinsi di Indonesia!</p>
+        <button class="btn btn-primary" id="modal-btn" style="width:100%; justify-content:center;" onclick="closeModal()">Tutup</button>
+    </div>
+</div>
+
+<script>
+// Check if mobile width
+const isMobile = window.innerWidth <= 500;
+const SZ = isMobile ? 36 : 38; // slightly larger cells for mobile tapping
+
+const WORDS = [
+    {id:"1a", n:1,  d:"across", ans:"SURABAYA",  x:0, y:0,  clue:"Ibu kota Jawa Timur, dijuluki Kota Pahlawan"},
+    {id:"2d", n:2,  d:"down",   ans:"ACEH",      x:3, y:0,  clue:"Provinsi paling barat Indonesia, dijuluki Serambi Mekkah"},
+    {id:"3d", n:3,  d:"down",   ans:"PONTIANAK", x:6, y:2,  clue:"Ibu kota Kalimantan Barat, dilalui garis khatulistiwa"},
+    {id:"4a", n:4,  d:"across", ans:"BANDUNG",   x:4, y:4,  clue:"Ibu kota Jawa Barat, dijuluki Paris van Java"},
+    {id:"5d", n:5,  d:"down",   ans:"JAKARTA",   x:2, y:5,  clue:"Ibu kota negara Republik Indonesia"},
+    {id:"6a", n:6,  d:"across", ans:"MAKASSAR",  x:0, y:7,  clue:"Ibu kota provinsi Sulawesi Selatan"},
+    {id:"6d", n:6,  d:"down",   ans:"MEDAN",     x:0, y:7,  clue:"Ibu kota provinsi Sumatera Utara"},
+    {id:"7d", n:7,  d:"down",   ans:"SEMARANG",  x:4, y:7,  clue:"Ibu kota provinsi Jawa Tengah"},
+    {id:"8a", n:8,  d:"across", ans:"KUPANG",    x:6, y:10, clue:"Ibu kota provinsi Nusa Tenggara Timur"},
+    {id:"9d", n:9,  d:"down",   ans:"PADANG",    x:8, y:10, clue:"Ibu kota provinsi Sumatera Barat"},
+    {id:"10d",n:10, d:"down",   ans:"BALI",      x:6, y:12, clue:"Provinsi yang dijuluki Pulau Dewata"},
+    {id:"11a",n:11, d:"across", ans:"DENPASAR",  x:2, y:13, clue:"Ibu kota provinsi Bali"},
+];
+
+let grid={}, ax=null, ay=null, dir="across";
+
+function build(){
+    WORDS.forEach(w=>{
+        for(let i=0;i<w.ans.length;i++){
+            const cx=w.d==="across"?w.x+i:w.x;
+            const cy=w.d==="down"?w.y+i:w.y;
+            const k=cx+","+cy;
+            if(!grid[k]) grid[k]={x:cx,y:cy,letter:w.ans[i],across:null,down:null,num:null,hint:false};
+            grid[k][w.d]=w;
+            if(i===0){
+                grid[k].num=w.n;
+                grid[k].hint=true; // first letter is a hint
+            }
+        }
+    });
+}
+
+function render(){
+    const b=document.getElementById("board");
+    let mx=0,my=0;
+    Object.values(grid).forEach(c=>{if(c.x>mx)mx=c.x;if(c.y>my)my=c.y;});
+    b.style.width=(mx+1)*SZ+"px";
+    b.style.height=(my+1)*SZ+"px";
+
+    Object.values(grid).forEach(c=>{
+        const d=document.createElement("div");
+        d.className="cell";
+        d.id="c"+c.x+"_"+c.y;
+        d.style.left=c.x*SZ+"px";
+        d.style.top=c.y*SZ+"px";
+        
+        if(c.num!==null){
+            const s=document.createElement("span");
+            s.className="num";s.textContent=c.num;
+            d.appendChild(s);
+        }
+        
+        const inp=document.createElement("input");
+        inp.type = "text";
+        // Mobile optimizations to prevent auto-complete & dictionary popups
+        inp.inputMode = "text";
+        inp.setAttribute("autocorrect", "off");
+        inp.setAttribute("autocapitalize", "characters");
+        inp.setAttribute("spellcheck", "false");
+        inp.maxLength = 1;
+        inp.autocomplete = "off";
+        
+        if(c.hint){inp.value=c.letter;inp.disabled=true;}
+        
+        inp.addEventListener("focus",()=>onFocus(c.x,c.y));
+        // Using pointerdown to detect tap before focus on mobile
+        inp.addEventListener("pointerdown",()=>onPointerDown(c.x,c.y));
+        inp.addEventListener("input",e=>onInput(e,c.x,c.y));
+        inp.addEventListener("keydown",e=>onKey(e,c.x,c.y));
+        
+        d.appendChild(inp);
+        b.appendChild(d);
+    });
+
+    ["across","down"].forEach(dr=>{
+        const ul=document.getElementById("cl-"+(dr==="across"?"across":"down"));
+        WORDS.filter(w=>w.d===dr).forEach(w=>{
+            const li=document.createElement("li");
+            li.className="clue-item";li.id="q-"+w.id;
+            li.innerHTML='<span class="clue-num">'+w.n+'.</span><span>'+w.clue+'</span>';
+            li.onclick=()=>{dir=dr;focus(w.x,w.y);};
+            ul.appendChild(li);
+        });
+    });
+}
+
+function onPointerDown(x,y){
+    const c=grid[x+","+y];if(!c)return;
+    // If tapping the same active cell that is a crossing, toggle direction
+    if(ax===x && ay===y){
+        if(c.across && c.down) dir = dir === "across" ? "down" : "across";
+        hl();
+    }
+}
+
+function focus(x,y){
+    const i=document.querySelector("#c"+x+"_"+y+" input");
+    if(i){
+        if(i.disabled){advance(x,y,1);return;}
+        i.focus();
+    }
+}
+
+function onFocus(x,y){
+    const c=grid[x+","+y];if(!c)return;
+    if(ax!==x || ay!==y){
+        if(dir==="across"&&!c.across)dir="down";
+        if(dir==="down"&&!c.down)dir="across";
+    }
+    ax=x;ay=y;hl();
+}
+
+function onInput(e,x,y){
+    e.target.value=e.target.value.replace(/[^A-Za-z]/g,"").toUpperCase();
+    e.target.parentElement.classList.remove("correct", "wrong");
+    if(e.target.value)advance(x,y,1);
+}
+
+function onKey(e,x,y){
+    if(e.key==="Backspace"&&!e.target.value){e.preventDefault();advance(x,y,-1);return;}
+    if(e.key==="ArrowRight"){e.preventDefault();dir="across";advance(x,y,1);}
+    if(e.key==="ArrowLeft"){e.preventDefault();dir="across";advance(x,y,-1);}
+    if(e.key==="ArrowDown"){e.preventDefault();dir="down";advance(x,y,1);}
+    if(e.key==="ArrowUp"){e.preventDefault();dir="down";advance(x,y,-1);}
+}
+
+function advance(x,y,d){
+    const nx=dir==="across"?x+d:x, ny=dir==="down"?y+d:y;
+    const nc=grid[nx+","+ny];if(!nc)return;
+    const cw=grid[x+","+y]?grid[x+","+y][dir]:null;
+    if(cw&&nc[dir]&&nc[dir].id===cw.id){
+        const inp=document.querySelector("#c"+nx+"_"+ny+" input");
+        if(inp&&inp.disabled){advance(nx,ny,d);return;} // skip hint cells
+        if(inp)inp.focus();
+    }
+}
+
+function hl(){
+    document.querySelectorAll(".cell").forEach(e=>e.classList.remove("hl-word","hl-active"));
+    document.querySelectorAll(".clue-item").forEach(e=>e.classList.remove("active"));
+    
+    if(ax===null)return;
+    
+    const c=grid[ax+","+ay];if(!c)return;
+    const w=c[dir];if(!w)return;
+    
+    for(let i=0;i<w.ans.length;i++){
+        const cx=w.d==="across"?w.x+i:w.x, cy=w.d==="down"?w.y+i:w.y;
+        const el=document.getElementById("c"+cx+"_"+cy);if(el)el.classList.add("hl-word");
+    }
+    const ac=document.getElementById("c"+ax+"_"+ay);if(ac)ac.classList.add("hl-active");
+    
+    const cl=document.getElementById("q-"+w.id);
+    if(cl){cl.classList.add("active");}
+    
+    // Update active clue panel (Mobile view mainly)
+    updateActiveCluePanel(w);
+}
+
+function updateActiveCluePanel(word) {
+    const panel = document.getElementById("active-clue-panel");
+    if (!word) {
+        panel.className = "active-clue-panel hidden-clue";
+        panel.innerHTML = `<span class="clue-text">Pilih kotak di papan untuk melihat pertanyaan</span>`;
+        return;
+    }
+    
+    panel.className = "active-clue-panel";
+    const dirText = word.d === "across" ? "➡ Mendatar" : "⬇ Menurun";
+    
+    panel.innerHTML = `
+        <div class="clue-badge">${word.n}</div>
+        <div class="clue-text">${word.clue}</div>
+        <div class="clue-dir-icon">${dirText}</div>
+    `;
+}
+
+function checkAnswers(){
+    let tot=0, ok=0, filled=0;
+    Object.values(grid).forEach(c=>{
+        if(!c.hint) { // Jangan hitung kotak huruf bantuan
+            tot++;
+            const inp=document.querySelector("#c"+c.x+"_"+c.y+" input");
+            const v=inp.value.toUpperCase();
+            if(v) filled++;
+            
+            if(v===c.letter){
+                ok++;
+                inp.parentElement.classList.add("correct");
+                inp.parentElement.classList.remove("wrong");
+            } else {
+                inp.parentElement.classList.remove("correct");
+                if(v) inp.parentElement.classList.add("wrong");
+            }
+        }
+    });
+    
+    let score = Math.round((ok / tot) * 100);
+    
+    let modal = document.getElementById("modal");
+    let emoji = document.getElementById("modal-emoji");
+    let title = document.getElementById("modal-title");
+    let msg = document.getElementById("modal-msg");
+    let btn = document.getElementById("modal-btn");
+    
+    if(score === 100) {
+        emoji.textContent = "🏆";
+        title.innerHTML = `Nilai: <span style="color:var(--success)">${score}</span>`;
+        msg.textContent = "Sempurna! Kamu membuktikan pengetahuanmu tentang kota & provinsi di Indonesia dengan sangat baik!";
+        btn.textContent = "Selesai / Main Lagi";
+    } else if (score >= 70) {
+        emoji.textContent = "👍";
+        title.innerHTML = `Nilai: <span style="color:#d97706">${score}</span>`;
+        if (filled < tot) {
+            msg.textContent = `Bagus! Tapi masih ada ${tot - filled} kotak yang belum diisi. Ayo lengkapi agar nilainya 100!`;
+        } else {
+            msg.textContent = `Sedikit lagi! Ada beberapa huruf yang kurang tepat (bertanda merah). Yuk perbaiki!`;
+        }
+        btn.textContent = "Lanjut Mengerjakan";
+    } else {
+        emoji.textContent = "💪";
+        title.innerHTML = `Nilai: <span style="color:#dc2626">${score}</span>`;
+        if (filled < tot) {
+            msg.textContent = `Kamu baru mengisi ${filled} dari ${tot} huruf. Ayo terus semangat melengkapinya!`;
+        } else {
+            msg.textContent = "Jangan menyerah! Periksa kembali jawabanmu. Huruf yang benar sudah ditandai hijau.";
+        }
+        btn.textContent = "Lanjut Mengerjakan";
+    }
+    
+    modal.classList.add("show");
+}
+
+function resetGame(){
+    if(!confirm("Yakin ingin mengulangi?"))return;
+    Object.values(grid).forEach(c=>{
+        const inp=document.querySelector("#c"+c.x+"_"+c.y+" input");
+        if(!c.hint){inp.value="";}
+        inp.parentElement.classList.remove("correct", "wrong");
+    });
+    ax=ay=null;
+    hl();
+    updateActiveCluePanel(null);
+}
+
+function closeModal(){
+    document.getElementById("modal").classList.remove("show");
+    
+    // Jika nilai sudah 100 dan tombol ditutup, kita bisa tawarkan reset
+    if(document.getElementById("modal-emoji").textContent === "🏆") {
+        if(confirm("Mulai ulang dari awal?")) {
+            resetGame();
+        }
+    }
+}
+
+build();render();
+</script>
+</body>
+</html>
